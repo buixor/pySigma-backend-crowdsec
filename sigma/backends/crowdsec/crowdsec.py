@@ -1,6 +1,6 @@
 from sigma.conversion.state import ConversionState
 from sigma.rule import SigmaRule
-from sigma.conversion.base import TextQueryBackend
+from sigma.conversion.base import TextQueryBackend, SigmaString
 from sigma.conditions import ConditionItem, ConditionAND, ConditionOR, ConditionNOT
 from sigma.conversion.deferred import DeferredQueryExpression
 from sigma.types import SigmaCompareExpression, SigmaRegularExpression
@@ -30,10 +30,10 @@ class crowdsecBackend(TextQueryBackend):
 
     precedence : ClassVar[Tuple[ConditionItem, ConditionItem, ConditionItem]] = (ConditionNOT, ConditionAND, ConditionOR)
     group_expression : ClassVar[str] = "({expr})"   # Expression for precedence override grouping as format string with {expr} placeholder
-    parenthesize : bool = True     # Reflect parse tree by putting parenthesis around all expressions - use this for target systems without strict precedence rules.
+    #parenthesize : bool = False     # Reflect parse tree by putting parenthesis around all expressions - use this for target systems without strict precedence rules.
 
     # Generated query tokens
-    token_separator : str = " "     # separator inserted between all boolean operators
+    #token_separator : str = " "     # separator inserted between all boolean operators
     or_token : ClassVar[str] = "||"
     and_token : ClassVar[str] = "&&"
     not_token : ClassVar[str] = "not"
@@ -41,9 +41,9 @@ class crowdsecBackend(TextQueryBackend):
     # String output
     ## Fields
     ### Quoting
-    field_quote : ClassVar[str] = "'"                               # Character used to quote field characters if field_quote_pattern matches (or not, depending on field_quote_pattern_negation). No field name quoting is done if not set.
-    field_quote_pattern : ClassVar[Pattern] = re.compile("^[a-zA-Z]") #custom  # Quote field names if this pattern (doesn't) matches, depending on field_quote_pattern_negation. Field name is always quoted if pattern is not set.
-    field_quote_pattern_negation : ClassVar[bool] = True            # Negate field_quote_pattern result. Field name is quoted if pattern doesn't matches if set to True (default).
+    field_quote : ClassVar[str] = '"'                               # Character used to quote field characters if field_quote_pattern matches (or not, depending on field_quote_pattern_negation). No field name quoting is done if not set.
+    field_quote_pattern : ClassVar[Pattern] = re.compile("^[\w.]+$") #custom  # Quote field names if this pattern (doesn't) matches, depending on field_quote_pattern_negation. Field name is always quoted if pattern is not set.
+    #field_quote_pattern_negation : ClassVar[bool] = True            # Negate field_quote_pattern result. Field name is quoted if pattern doesn't matches if set to True (default).
 
     ### Escaping
     field_escape : ClassVar[str] = "\\"               # Character to escape particular parts defined in field_escape_pattern.
@@ -52,14 +52,14 @@ class crowdsecBackend(TextQueryBackend):
 
     ## Values
 
-    str_quote       : ClassVar[str] = '"'     # string quoting character (added as escaping character)
+    str_quote       : ClassVar[str] = "'"     # string quoting character (added as escaping character)
     escape_char     : ClassVar[str] = "\\"    # Escaping character for special characrers inside string ##TBD : sort this one out
     wildcard_multi  : ClassVar[str] = "*"     # Character used as multi-character wildcard
     wildcard_single : ClassVar[str] = "?"     # Character used as single-character wildcard
     #wildcard_multi  : ClassVar[str] = ".*"     # Character used as multi-character wildcard
     #wildcard_single : ClassVar[str] = "."     # Character used as single-character wildcard
     add_escaped     : ClassVar[str] = "\\"    # Characters quoted in addition to wildcards and string quote
-    filter_chars    : ClassVar[str] = ""      # Characters filtered
+    #filter_chars    : ClassVar[str] = ""      # Characters filtered
     bool_values     : ClassVar[Dict[bool, str]] = {   # Values to which boolean values are mapped.
         True: "true",
         False: "false",
@@ -76,8 +76,8 @@ class crowdsecBackend(TextQueryBackend):
     # is one of the flags shortcuts supported by Sigma (currently i, m and s) and refers to the
     # token stored in the class variable re_flags.
     re_expression : ClassVar[str] = "{field} matches '{regex}'"
-    re_escape_char : ClassVar[str] = "\\\\"               # Character used for escaping in regular expressions
-    re_escape : ClassVar[Tuple[str]] = ("")               # List of strings that are escaped
+    re_escape_char : ClassVar[str] = "\\"               # Character used for escaping in regular expressions
+    re_escape : ClassVar[Tuple[str]] = ("\\")               # List of strings that are escaped
     re_escape_escape_char : bool = True                 # If True, the escape character is also escaped
     re_flag_prefix : bool = True                        # If True, the flags are prepended as (?x) group at the beginning of the regular expression, e.g. (?i). If this is not supported by the target, it should be set to False.
     # Mapping from SigmaRegularExpressionFlag values to static string templates that are used in
@@ -125,7 +125,7 @@ class crowdsecBackend(TextQueryBackend):
     # Value not bound to a field
     unbound_value_str_expression : ClassVar[str] = 'evt.Line.Raw contains {value}'   # Expression for string value not bound to a field as format string with placeholder {value}
     unbound_value_num_expression : ClassVar[str] = '{value}'     # Expression for number value not bound to a field as format string with placeholder {value}
-    unbound_value_re_expression : ClassVar[str] = 'evt.Line.Raw matches "{value}"'   # Expression for regular expression not bound to a field as format string with placeholder {value} and {flag_x} as described for re_expression
+    unbound_value_re_expression : ClassVar[str] = 'evt.Line.Raw matches {value}'   # Expression for regular expression not bound to a field as format string with placeholder {value} and {flag_x} as described for re_expression
 
     # Query finalization: appending and concatenating deferred query part
     deferred_start : ClassVar[str] = "\n| "               # String used as separator between main query and deferred parts
@@ -134,6 +134,21 @@ class crowdsecBackend(TextQueryBackend):
 
     # TODO: implement custom methods for query elements not covered by the default backend base.
     # Documentation: https://sigmahq-pysigma.readthedocs.io/en/latest/Backends.html
+
+    def convert_value_str(self, s : SigmaString, state : ConversionState) -> str:
+        """Convert a SigmaString into a plain string which can be used in query."""
+        converted = s.convert(
+            self.escape_char,
+            "",
+            "",
+            self.str_quote + self.add_escaped,
+            self.filter_chars,
+        )
+
+        if self.decide_string_quoting(s):
+            return self.quote_string(converted)
+        else:
+            return converted
 
     def convert_condition_not(self, cond : ConditionNOT, state : ConversionState) -> Union[str, DeferredQueryExpression]:
         """Conversion of NOT conditions."""
@@ -153,16 +168,49 @@ class crowdsecBackend(TextQueryBackend):
         except TypeError:       # pragma: no cover
             raise NotImplementedError("Operator 'not' not supported by the backend")
 
+    def generate_labels(self, rule: SigmaRule, confidence: int, spoofable: int, behavior: str, remediation: str) -> str:
+        classification = ""
+        #re.match(r"pattern", string)
+        for tag in rule.tags:
+            if str(tag).startswith("attack.") and re.match("^t[0-9]+", str(tag).split(".")[1]):
+                classification += f"#  - {tag}\n"
+        service = rule.logsource.product
+        label = rule.title
+        meta = f"""#status: {}
+labels:
+  service: {service}
+  confidence: {confidence}
+  spoofable: {spoofable}
+#  classification:
+{classification}
+  label: "{label}"
+  behavior : "{behavior}"
+  remediation: {remediation}
+"""
+        return meta
+
     def finalize_query_default_yaml(self, rule: SigmaRule, query: str, index: int, state: ConversionState) -> Any:
         # TODO: implement the per-query output for the output format format1 here. Usually, the generated query is
         # embedded into a template, e.g. a JSON format with additional information from the Sigma rule.
         # TODO: proper type annotation.
 
         prefilter = ""
+        scope = ""
+        blackhole = ""
         if rule.logsource.category == "webserver":
             prefilter = "evt.Meta.service == 'http'"
+            blackhole = "blackhole: 2m"
+            meta = self.generate_labels(rule, 0, 0, "http:exploit", "true")
+            #here scope is implicit : ip
+
         if rule.logsource.category == "process_creation" and rule.logsource.product == "windows":
+            meta = self.generate_labels(rule, 0, 0, "windows:audit", "false")
             prefilter = "(evt.Meta.service == 'sysmon' && evt.Parsed.EventID == '1')"
+            blackhole = "blackhole: 2m"
+            scope = """scope:
+  type: ParentProcessId
+  expression: evt.Parsed.ParentProcessId
+"""
         formatted_desc = rule.description.replace("\n", "\n  ")
 
         #we generate the rule name based on the rule path
@@ -177,10 +225,9 @@ description: |
   {formatted_desc}
 filter: |
   {prefilter} && ({query})
-blackhole: 2m
-labels:
-  type: exploit
-  remediation: true"""
+{blackhole}
+{meta}
+{scope}"""
 
         return ret
 

@@ -64,12 +64,17 @@ def crowdsec_pipeline() -> ProcessingPipeline:        # Processing pipelines sho
                     "ParentProcessId": "int(evt.Parsed.ParentProcessId)",
                     "ParentImage": "evt.Parsed.ParentImage",
                     "ParentCommandLine": "evt.Parsed.ParentCommandLine",
+                    "Product": "evt.Parsed.Product",
                     "Hashes": "evt.Parsed.Hashes",
                     "ParentUser": "evt.Parsed.ParentUser",
-                    "imphash": "evt.Parsed.imphash",
+                    "Imphash": "evt.Parsed.Imphash",
+                    "Provider_Name": "evt.Parsed.ProviderName",
+                    #taxonomy says it's imphash, but rules seem to use ImpHash
+                    "imphash": "evt.Parsed.Imphash",                    
                     "md5": "evt.Parsed.md5",
                     "sha1": "evt.Parsed.sha1",
                     "sha256": "evt.Parsed.sha256",
+
                 })
             ),
             ProcessingItem(     # This is an example for processing items generated from the mapping above.
