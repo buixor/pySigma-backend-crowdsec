@@ -13,4 +13,6 @@ process_start_rule_collection = SigmaCollection.load_ruleset([sys.argv[1]])
 
 
 #pprint.pprint(process_start_rule_collection)
-print(backendx().convert(rule_collection=process_start_rule_collection, output_format="default_yaml"))
+
+
+print(backendx().convert(rule_collection=process_start_rule_collection, output_format="default"))

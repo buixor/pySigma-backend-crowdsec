@@ -2,14 +2,16 @@
 from sigma.processing.transformations import AddConditionTransformation, FieldMappingTransformation, DetectionItemFailureTransformation, RuleFailureTransformation, SetStateTransformation
 from sigma.processing.conditions import LogsourceCondition, IncludeFieldCondition, ExcludeFieldCondition, RuleProcessingItemAppliedCondition
 from sigma.processing.pipeline import ProcessingItem, ProcessingPipeline
+from sigma.pipelines.base import Pipeline
 
 # TODO: the following code is just an example extend/adapt as required.
 # See https://sigmahq-pysigma.readthedocs.io/en/latest/Processing_Pipelines.html for further documentation.
 
+@Pipeline
 def crowdsec_pipeline() -> ProcessingPipeline:        # Processing pipelines should be defined as functions that return a ProcessingPipeline object.
     return ProcessingPipeline(
         name="crowdsec webserver pipeline",
-        allowed_backends=frozenset(),                                               # Set of identifiers of backends (from the backends mapping) that are allowed to use this processing pipeline. This can be used by frontends like Sigma CLI to warn the user about inappropriate usage.
+        allowed_backends={"crowdsecBackend"},                                               # Set of identifiers of backends (from the backends mapping) that are allowed to use this processing pipeline. This can be used by frontends like Sigma CLI to warn the user about inappropriate usage.
         priority=20,            # The priority defines the order pipelines are applied. See documentation for common values.
         items=[
         
@@ -40,8 +42,25 @@ def crowdsec_pipeline() -> ProcessingPipeline:        # Processing pipelines sho
                    "cs-referer": "evt.Parsed.http_referer",
                 })
             ),
+
+    #             "Computer": "Registry.dest",
+    # "Details": "Registry.registry_value_data",
+    # "EventType": "Registry.action", # EventType: DeleteKey is parsed to action: deleted
+    # "Image": "Registry.process_path",
+    # "ProcessGuid": "Registry.process_guid",
+    # "ProcessId": "Registry.process_id",
+    # "TargetObject": "Registry.registry_key_name",
+
             ProcessingItem(     # This is an example for processing items generated from the mapping above.
-                identifier="crowdsec_windows_fieldmapping",
+                identifier="crowdsec_windows_process_creation_fieldmapping",
+                rule_conditions=[LogsourceCondition(category="process_creation",product="windows",)],
+                transformation=FieldMappingTransformation({
+                    "Computer" : "evt.Parsed.Computer",
+                    
+                })
+            ),
+            ProcessingItem(     # This is an example for processing items generated from the mapping above.
+                identifier="crowdsec_windows_registry_add_fieldmapping",
                 rule_conditions=[LogsourceCondition(category="process_creation",product="windows",)],
                 transformation=FieldMappingTransformation({
                     #"EventID": "int(evt.Parsed.EventID)",
@@ -81,61 +100,18 @@ def crowdsec_pipeline() -> ProcessingPipeline:        # Processing pipelines sho
                 identifier="crowdsec_webproxy_fieldmapping",
                 rule_conditions=[LogsourceCondition(category="proxy")],
                 transformation=FieldMappingTransformation({
-                    #"EventID": "int(evt.Parsed.EventID)",
                     "c-uri": "evt.Parsed.uri",
-                    #c-uri-extension -> 
-#                     c-uri-query: Path component of requested URL
-# c-uri-stem: Stem of the requested URL
-# c-useragent: the clients user agent.
-# cs-bytes: Number of bytes sent from the server
-# cs-cookie: Cookie headers sent from client to server.
-# cs-host: Host header send from client to server
-# cs-method: HTTP request method
-# r-dns: The Domain requested. Additionally is referred to as the Host header or URL Domain. Recommend to use cs-host instead of this field
-# cs-referrer: The referring link or site
-# cs-version: The HTTP protocol version that the client used
-# sc-bytes: Number of bytes sent from the client
-# sc-status: The HTTP status code
-# src_ip: The IP address of the client that made the request
-# dst_ip: The IP address of the server
-
-
-
-                    # "OriginalFileName" : "evt.Parsed.OriginalFileName",
-                    # "UtcTime": "evt.StrTime",
-                    # "ProcessGuid": "evt.Parsed.ProcessGuid",
-                    # "ProcessId": "int(evt.Parsed.ProcessId)",
-                    # "Image": "evt.Parsed.Image",
-                    # "FileVersion": "evt.Parsed.FileVersion",
-                    # "Description": "evt.Parsed.Description",
-                    # "CommandLine": "evt.Parsed.CommandLine",
-                    # "CurrentDirectory": "evt.Parsed.CurrentDirectory",
-                    # "User": "evt.Parsed.User",
-                    # "LogonGuid": "evt.Parsed.LogonGuid",
-                    # "LogonId": "int(evt.Parsed.LogonId)",
-                    # "TerminalSessionId": "evt.Parsed.TerminalSessionId",
-                    # "IntegrityLevel": "evt.Parsed.IntegrityLevel",
-                    # "ParentProcessGuid": "evt.Parsed.ParentProcessGuid",
-                    # "ParentProcessId": "int(evt.Parsed.ParentProcessId)",
-                    # "ParentImage": "evt.Parsed.ParentImage",
-                    # "ParentCommandLine": "evt.Parsed.ParentCommandLine",
-                    # "Hashes": "evt.Parsed.Hashes",
-                    # "ParentUser": "evt.Parsed.ParentUser",
-                    # "imphash": "evt.Parsed.imphash",
-                    # "md5": "evt.Parsed.md5",
-                    # "sha1": "evt.Parsed.sha1",
-                    # "sha256": "evt.Parsed.sha256",
                 })
             ),
-            ProcessingItem(
-                identifier="crowdsec_rule_not_supported",
-                rule_condition_linking=any,
-                transformation=RuleFailureTransformation("Rule type not yet supported by crowdsec backend!"),
-                rule_condition_negation=True,
-                rule_conditions=[
-                    RuleProcessingItemAppliedCondition("crowdsec_webserver_fieldmapping"),
-                    RuleProcessingItemAppliedCondition("crowdsec_windows_fieldmapping")
-                ],
-            ),
+            # ProcessingItem(
+            #     identifier="crowdsec_rule_not_supported",
+            #     rule_condition_linking=any,
+            #     transformation=RuleFailureTransformation("Rule type not yet supported by crowdsec backend!"),
+            #     rule_condition_negation=True,
+            #     rule_conditions=[
+            #         RuleProcessingItemAppliedCondition("crowdsec_webserver_fieldmapping"),
+            #         RuleProcessingItemAppliedCondition("crowdsec_windows_fieldmapping")
+            #     ],
+            # ),
         ],
     )

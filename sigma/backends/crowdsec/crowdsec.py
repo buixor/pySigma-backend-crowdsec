@@ -1,5 +1,5 @@
 from sigma.conversion.state import ConversionState
-from sigma.rule import SigmaRule
+from sigma.rule import SigmaRule, SigmaStatus
 from sigma.conversion.base import TextQueryBackend, SigmaString
 from sigma.conditions import ConditionItem, ConditionAND, ConditionOR, ConditionNOT
 from sigma.conversion.deferred import DeferredQueryExpression
@@ -11,6 +11,9 @@ import sigma
 import os
 import re
 from typing import ClassVar, Dict, Tuple, Pattern, List, Any
+import pdb
+
+
 
 class crowdsecBackend(TextQueryBackend):
     """crowdsec backend."""
@@ -23,8 +26,8 @@ class crowdsecBackend(TextQueryBackend):
     # The backend generates grouping if required
     name : ClassVar[str] = "crowdsec backend"
     formats : Dict[str, str] = {
-        "default": "Plain crowdsec queries",
-        "default_yaml": "default crowdsec scenario format",
+        #"default": "Plain crowdsec queries",
+        "default": "default crowdsec scenario format",
     }
     requires_pipeline : bool = True            # TODO: does the backend requires that a processing pipeline is provided? This information can be used by user interface programs like Sigma CLI to warn users about inappropriate usage of the backend.
 
@@ -126,7 +129,6 @@ class crowdsecBackend(TextQueryBackend):
     unbound_value_str_expression : ClassVar[str] = 'evt.Line.Raw contains {value}'   # Expression for string value not bound to a field as format string with placeholder {value}
     unbound_value_num_expression : ClassVar[str] = '{value}'     # Expression for number value not bound to a field as format string with placeholder {value}
     unbound_value_re_expression : ClassVar[str] = 'evt.Line.Raw matches {value}'   # Expression for regular expression not bound to a field as format string with placeholder {value} and {flag_x} as described for re_expression
-
     # Query finalization: appending and concatenating deferred query part
     deferred_start : ClassVar[str] = "\n| "               # String used as separator between main query and deferred parts
     deferred_separator : ClassVar[str] = "\n| "           # String used to join multiple deferred query parts
@@ -168,15 +170,22 @@ class crowdsecBackend(TextQueryBackend):
         except TypeError:       # pragma: no cover
             raise NotImplementedError("Operator 'not' not supported by the backend")
 
-    def generate_labels(self, rule: SigmaRule, confidence: int, spoofable: int, behavior: str, remediation: str) -> str:
+    def generate_labels(self, rule: SigmaRule, spoofable: int, behavior: str, remediation: str) -> str:
         classification = ""
-        #re.match(r"pattern", string)
+        confidence = 0
+        if rule.status == SigmaStatus.EXPERIMENTAL:
+            confidence = 0
+        elif rule.status == SigmaStatus.TEST:
+            confidence = 1
+        elif rule.status == SigmaStatus.STABLE:
+            confidence = 2
         for tag in rule.tags:
             if str(tag).startswith("attack.") and re.match("^t[0-9]+", str(tag).split(".")[1]):
                 classification += f"#  - {tag}\n"
         service = rule.logsource.product
         label = rule.title
-        meta = f"""#status: {}
+        status = rule.status
+        meta = f"""#status: {status}
 labels:
   service: {service}
   confidence: {confidence}
@@ -189,22 +198,31 @@ labels:
 """
         return meta
 
-    def finalize_query_default_yaml(self, rule: SigmaRule, query: str, index: int, state: ConversionState) -> Any:
+    def finalize_query_default(self, rule: SigmaRule, query: str, index: int, state: ConversionState) -> Any:
         # TODO: implement the per-query output for the output format format1 here. Usually, the generated query is
         # embedded into a template, e.g. a JSON format with additional information from the Sigma rule.
         # TODO: proper type annotation.
-
         prefilter = ""
         scope = ""
         blackhole = ""
+        ### GENERIC WEB RULES
         if rule.logsource.category == "webserver":
             prefilter = "evt.Meta.service == 'http'"
             blackhole = "blackhole: 2m"
-            meta = self.generate_labels(rule, 0, 0, "http:exploit", "true")
+            meta = self.generate_labels(rule, 0, "http:exploit", "true")
             #here scope is implicit : ip
-
+        ### WINDOWS REGISTRY ADD
+        if rule.logsource.category == "registry_add" and rule.logsource.product == "windows":
+            meta = self.generate_labels(rule, 0, "windows:audit", "false")
+            prefilter = "(evt.Meta.service == 'sysmon' && evt.Parsed.EventID == '12')"
+            blackhole = "blackhole: 2m"
+            scope = """scope:
+  type: ParentProcessId
+  expression: evt.Parsed.ParentProcessId
+"""
+        ### WINDOWS PROCESS CREATION
         if rule.logsource.category == "process_creation" and rule.logsource.product == "windows":
-            meta = self.generate_labels(rule, 0, 0, "windows:audit", "false")
+            meta = self.generate_labels(rule, 0, "windows:audit", "false")
             prefilter = "(evt.Meta.service == 'sysmon' && evt.Parsed.EventID == '1')"
             blackhole = "blackhole: 2m"
             scope = """scope:
@@ -217,7 +235,7 @@ labels:
         if rule.source.path == "":
             raise ValueError("Rule path is empty")
         else:
-            name = "sigma/"+os.path.basename(rule.source.path).split(".")[0]
+            name = "sigmahq/"+os.path.basename(rule.source.path).split(".")[0]
 
         ret = f"""type: trigger
 name: {name}
@@ -228,37 +246,8 @@ filter: |
 {blackhole}
 {meta}
 {scope}"""
-
         return ret
 
-    def finalize_output_default_yaml(self, queries: List[str]) -> Any:
-        # TODO: implement the output finalization for all generated queries for the format format1 here. Usually,
-        # the single generated queries are embedded into a structure, e.g. some JSON or XML that can be imported into
-        # the SIEM.
-        # TODO: proper type annotation. Sigma CLI supports:
-        # - str: output as is.
-        # - bytes: output in file only (e.g. if a zip package is output).
-        # - dict: output serialized as JSON.
-        # - list of str: output each item as is separated by two newlines.
-        # - list of dict: serialize each item as JSON and output all separated by newlines.
-        return "\n---".join(queries)
-    
-    def finalize_query_format2(self, rule: SigmaRule, query: str, index: int, state: ConversionState) -> Any:
-        # TODO: implement the per-query output for the output format format2 here. Usually, the generated query is
-        # embedded into a template, e.g. a JSON format with additional information from the Sigma rule.
-        # TODO: proper type annotation.
-        return query
-
-    def finalize_output_format2(self, queries: List[str]) -> Any:
-        # TODO: implement the output finalization for all generated queries for the format format2 here. Usually,
-        # the single generated queries are embedded into a structure, e.g. some JSON or XML that can be imported into
-        # the SIEM.
-        # TODO: proper type annotation. Sigma CLI supports:
-        # - str: output as is.
-        # - bytes: output in file only (e.g. if a zip package is output).
-        # - dict: output serialized as JSON.
-        # - list of str: output each item as is separated by two newlines.
-        # - list of dict: serialize each item as JSON and output all separated by newlines.
+    def finalize_output_default(self, queries: List[str]) -> Any:
         return "\n".join(queries)
-    
-    
+
