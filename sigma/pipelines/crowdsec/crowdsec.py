@@ -10,8 +10,8 @@ from sigma.pipelines.base import Pipeline
 @Pipeline
 def crowdsec_pipeline() -> ProcessingPipeline:        # Processing pipelines should be defined as functions that return a ProcessingPipeline object.
     return ProcessingPipeline(
-        name="crowdsec webserver pipeline",
-        allowed_backends={"crowdsecBackend"},                                               # Set of identifiers of backends (from the backends mapping) that are allowed to use this processing pipeline. This can be used by frontends like Sigma CLI to warn the user about inappropriate usage.
+        name="crowdsec pipeline",
+        allowed_backends={"crowdsec"},                                               # Set of identifiers of backends (from the backends mapping) that are allowed to use this processing pipeline. This can be used by frontends like Sigma CLI to warn the user about inappropriate usage.
         priority=20,            # The priority defines the order pipelines are applied. See documentation for common values.
         items=[
         
