@@ -6,7 +6,7 @@ from sigma.conversion.deferred import DeferredQueryExpression
 from sigma.types import SigmaCompareExpression, SigmaRegularExpression
 from typing import Pattern, Union, ClassVar, Optional, Tuple, List, Dict, Any
 from sigma.processing.pipeline import ProcessingPipeline
-from sigma.pipelines.crowdsec import crowdsec_pipeline # TODO: add pipeline imports or delete this line
+from sigma.pipelines.crowdsec import crowdsec_pipeline
 import sigma
 import os
 import re
@@ -18,15 +18,12 @@ import pdb
 class crowdsecBackend(TextQueryBackend):
     """crowdsec backend."""
     backend_processing_pipeline : ClassVar[ProcessingPipeline] = crowdsec_pipeline()
-    # TODO: change the token definitions according to the syntax. Delete these not supported by your backend.
-    # See the pySigma documentation for further infromation:
     # https://sigmahq-pysigma.readthedocs.io/en/latest/Backends.html
 
     # Operator precedence: tuple of Condition{AND,OR,NOT} in order of precedence.
     # The backend generates grouping if required
-    name : ClassVar[str] = "crowdsec backend"
+    name : ClassVar[str] = "crowdsec_backend"
     formats : Dict[str, str] = {
-        #"default": "Plain crowdsec queries",
         "default": "default crowdsec scenario format",
     }
     requires_pipeline : bool = True            # TODO: does the backend requires that a processing pipeline is provided? This information can be used by user interface programs like Sigma CLI to warn users about inappropriate usage of the backend.
@@ -45,7 +42,7 @@ class crowdsecBackend(TextQueryBackend):
     ## Fields
     ### Quoting
     field_quote : ClassVar[str] = '"'                               # Character used to quote field characters if field_quote_pattern matches (or not, depending on field_quote_pattern_negation). No field name quoting is done if not set.
-    field_quote_pattern : ClassVar[Pattern] = re.compile("^[\w.]+$") #custom  # Quote field names if this pattern (doesn't) matches, depending on field_quote_pattern_negation. Field name is always quoted if pattern is not set.
+    field_quote_pattern : ClassVar[Pattern] = re.compile("^[\\w.]+$") #custom  # Quote field names if this pattern (doesn't) matches, depending on field_quote_pattern_negation. Field name is always quoted if pattern is not set.
     #field_quote_pattern_negation : ClassVar[bool] = True            # Negate field_quote_pattern result. Field name is quoted if pattern doesn't matches if set to True (default).
 
     ### Escaping
@@ -116,13 +113,16 @@ class crowdsecBackend(TextQueryBackend):
     field_not_exists_expression : ClassVar[str] = "notexists({field})"      # Expression for field non-existence as format string with {field} placeholder for field name. If not set, field_exists_expression is negated with boolean NOT.
 
     # Field value in list, e.g. "field in (value list)" or "field containsall (value list)"
+    # (TBD) For some reason, enabling this breaks the contains queries. See in_expressions_allow_wildcards
     convert_or_as_in : ClassVar[bool] = False                     # Convert OR as in-expression
+    # (TBD) This one would require use to use closures ie. all({field}, { # == }) to work
     convert_and_as_in : ClassVar[bool] = False                    # Convert AND as in-expression
+
     in_expressions_allow_wildcards : ClassVar[bool] = True       # Values in list can contain wildcards. If set to False (default) only plain values are converted into in-expressions.
     field_in_list_expression : ClassVar[str] = "{field} {op} [{list}]"  # Expression for field in list of values as format string with placeholders {field}, {op} and {list}
     or_in_operator : ClassVar[str] = "in"               # Operator used to convert OR into in-expressions. Must be set if convert_or_as_in is set
     #this one can be tricky
-    #and_in_operator : ClassVar[str] = "contains-all"    # Operator used to convert AND into in-expressions. Must be set if convert_and_as_in is set
+    #and_in_operator : ClassVar[str] = "all({field}, { # == })"    # Operator used to convert AND into in-expressions. Must be set if convert_and_as_in is set
     list_separator : ClassVar[str] = ", "               # List element separator
 
     # Value not bound to a field
@@ -181,7 +181,7 @@ class crowdsecBackend(TextQueryBackend):
             confidence = 2
         for tag in rule.tags:
             if str(tag).startswith("attack.") and re.match("^t[0-9]+", str(tag).split(".")[1]):
-                classification += f"#  - {tag}\n"
+                classification += f"   - {tag}\n"
         service = rule.logsource.product
         label = rule.title
         status = rule.status
@@ -190,7 +190,7 @@ labels:
   service: {service}
   confidence: {confidence}
   spoofable: {spoofable}
-#  classification:
+  classification:
 {classification}
   label: "{label}"
   behavior : "{behavior}"
@@ -246,6 +246,7 @@ filter: |
 {blackhole}
 {meta}
 {scope}"""
+        
         return ret
 
     def finalize_output_default(self, queries: List[str]) -> Any:
