@@ -1,30 +1,31 @@
 from sigma.conversion.state import ConversionState
-from sigma.rule import SigmaRule
+from sigma.rule import SigmaRule, SigmaStatus
 from sigma.conversion.base import TextQueryBackend, SigmaString
 from sigma.conditions import ConditionItem, ConditionAND, ConditionOR, ConditionNOT
 from sigma.conversion.deferred import DeferredQueryExpression
 from sigma.types import SigmaCompareExpression, SigmaRegularExpression
 from typing import Pattern, Union, ClassVar, Optional, Tuple, List, Dict, Any
 from sigma.processing.pipeline import ProcessingPipeline
-from sigma.pipelines.crowdsec import crowdsec_pipeline # TODO: add pipeline imports or delete this line
+from sigma.pipelines.crowdsec import crowdsec_pipeline
 import sigma
+import warnings
 import os
 import re
 from typing import ClassVar, Dict, Tuple, Pattern, List, Any
+import pdb
+
 
 class crowdsecBackend(TextQueryBackend):
     """crowdsec backend."""
     backend_processing_pipeline : ClassVar[ProcessingPipeline] = crowdsec_pipeline()
-    # TODO: change the token definitions according to the syntax. Delete these not supported by your backend.
-    # See the pySigma documentation for further infromation:
     # https://sigmahq-pysigma.readthedocs.io/en/latest/Backends.html
 
     # Operator precedence: tuple of Condition{AND,OR,NOT} in order of precedence.
     # The backend generates grouping if required
-    name : ClassVar[str] = "crowdsec backend"
+    name : ClassVar[str] = "crowdsec_backend"
     formats : Dict[str, str] = {
-        "default": "Plain crowdsec queries",
-        "default_yaml": "default crowdsec scenario format",
+        "default": "default crowdsec scenario format",
+        "queryonly": "ouput only the 'filter' (mostly for testing purposes)",
     }
     requires_pipeline : bool = True            # TODO: does the backend requires that a processing pipeline is provided? This information can be used by user interface programs like Sigma CLI to warn users about inappropriate usage of the backend.
 
@@ -42,7 +43,7 @@ class crowdsecBackend(TextQueryBackend):
     ## Fields
     ### Quoting
     field_quote : ClassVar[str] = '"'                               # Character used to quote field characters if field_quote_pattern matches (or not, depending on field_quote_pattern_negation). No field name quoting is done if not set.
-    field_quote_pattern : ClassVar[Pattern] = re.compile("^[\w.]+$") #custom  # Quote field names if this pattern (doesn't) matches, depending on field_quote_pattern_negation. Field name is always quoted if pattern is not set.
+    field_quote_pattern : ClassVar[Pattern] = re.compile("^[\\w.]+$") #custom  # Quote field names if this pattern (doesn't) matches, depending on field_quote_pattern_negation. Field name is always quoted if pattern is not set.
     #field_quote_pattern_negation : ClassVar[bool] = True            # Negate field_quote_pattern result. Field name is quoted if pattern doesn't matches if set to True (default).
 
     ### Escaping
@@ -56,8 +57,6 @@ class crowdsecBackend(TextQueryBackend):
     escape_char     : ClassVar[str] = "\\"    # Escaping character for special characrers inside string ##TBD : sort this one out
     wildcard_multi  : ClassVar[str] = "*"     # Character used as multi-character wildcard
     wildcard_single : ClassVar[str] = "?"     # Character used as single-character wildcard
-    #wildcard_multi  : ClassVar[str] = ".*"     # Character used as multi-character wildcard
-    #wildcard_single : ClassVar[str] = "."     # Character used as single-character wildcard
     add_escaped     : ClassVar[str] = "\\"    # Characters quoted in addition to wildcards and string quote
     #filter_chars    : ClassVar[str] = ""      # Characters filtered
     bool_values     : ClassVar[Dict[bool, str]] = {   # Values to which boolean values are mapped.
@@ -113,20 +112,22 @@ class crowdsecBackend(TextQueryBackend):
     field_not_exists_expression : ClassVar[str] = "notexists({field})"      # Expression for field non-existence as format string with {field} placeholder for field name. If not set, field_exists_expression is negated with boolean NOT.
 
     # Field value in list, e.g. "field in (value list)" or "field containsall (value list)"
-    convert_or_as_in : ClassVar[bool] = False                     # Convert OR as in-expression
+    # (TBD) For some reason, enabling this breaks the contains queries. See in_expressions_allow_wildcards
+    convert_or_as_in : ClassVar[bool] = True                     # Convert OR as in-expression
+    # (TBD) This one would require use to use closures ie. all({field}, { # == }) to work
     convert_and_as_in : ClassVar[bool] = False                    # Convert AND as in-expression
-    in_expressions_allow_wildcards : ClassVar[bool] = True       # Values in list can contain wildcards. If set to False (default) only plain values are converted into in-expressions.
+
+    in_expressions_allow_wildcards : ClassVar[bool] = False       # Values in list can contain wildcards. If set to False (default) only plain values are converted into in-expressions.
     field_in_list_expression : ClassVar[str] = "{field} {op} [{list}]"  # Expression for field in list of values as format string with placeholders {field}, {op} and {list}
     or_in_operator : ClassVar[str] = "in"               # Operator used to convert OR into in-expressions. Must be set if convert_or_as_in is set
     #this one can be tricky
-    #and_in_operator : ClassVar[str] = "contains-all"    # Operator used to convert AND into in-expressions. Must be set if convert_and_as_in is set
+    #and_in_operator : ClassVar[str] = "all({field}, { # == })"    # Operator used to convert AND into in-expressions. Must be set if convert_and_as_in is set
     list_separator : ClassVar[str] = ", "               # List element separator
 
     # Value not bound to a field
     unbound_value_str_expression : ClassVar[str] = 'evt.Line.Raw contains {value}'   # Expression for string value not bound to a field as format string with placeholder {value}
     unbound_value_num_expression : ClassVar[str] = '{value}'     # Expression for number value not bound to a field as format string with placeholder {value}
     unbound_value_re_expression : ClassVar[str] = 'evt.Line.Raw matches {value}'   # Expression for regular expression not bound to a field as format string with placeholder {value} and {flag_x} as described for re_expression
-
     # Query finalization: appending and concatenating deferred query part
     deferred_start : ClassVar[str] = "\n| "               # String used as separator between main query and deferred parts
     deferred_separator : ClassVar[str] = "\n| "           # String used to join multiple deferred query parts
@@ -168,20 +169,28 @@ class crowdsecBackend(TextQueryBackend):
         except TypeError:       # pragma: no cover
             raise NotImplementedError("Operator 'not' not supported by the backend")
 
-    def generate_labels(self, rule: SigmaRule, confidence: int, spoofable: int, behavior: str, remediation: str) -> str:
+    def generate_labels(self, rule: SigmaRule, spoofable: int, behavior: str, remediation: str) -> str:
+        """Use the rule tags and status to generate the meta section of the crowdsec scenario"""
         classification = ""
-        #re.match(r"pattern", string)
+        confidence = 0
+        if rule.status == SigmaStatus.EXPERIMENTAL:
+            confidence = 0
+        elif rule.status == SigmaStatus.TEST:
+            confidence = 1
+        elif rule.status == SigmaStatus.STABLE:
+            confidence = 2
         for tag in rule.tags:
             if str(tag).startswith("attack.") and re.match("^t[0-9]+", str(tag).split(".")[1]):
-                classification += f"#  - {tag}\n"
+                classification += f"   - {tag}\n"
         service = rule.logsource.product
         label = rule.title
-        meta = f"""#status: {}
+        status = rule.status
+        meta = f"""#status: {status}
 labels:
   service: {service}
   confidence: {confidence}
   spoofable: {spoofable}
-#  classification:
+  classification:
 {classification}
   label: "{label}"
   behavior : "{behavior}"
@@ -189,35 +198,54 @@ labels:
 """
         return meta
 
-    def finalize_query_default_yaml(self, rule: SigmaRule, query: str, index: int, state: ConversionState) -> Any:
-        # TODO: implement the per-query output for the output format format1 here. Usually, the generated query is
-        # embedded into a template, e.g. a JSON format with additional information from the Sigma rule.
-        # TODO: proper type annotation.
 
+    def finalize_query_queryonly(self, rule: SigmaRule, query: str, index: int, state: ConversionState) -> Any:
+        """Return only the query, used for testing purposes."""
+        #  Is there a better way to do this than defining a custom output format?
+        return query
+    def finalize_query_default(self, rule: SigmaRule, query: str, index: int, state: ConversionState) -> Any:
+        """Generate the final Crowdsec Scenario from Query and Sigma rule info"""
+        name = "sigmahq/NO_SOURCE_PATH"
+        formatted_desc = "No description provided"
+        meta = ""
         prefilter = ""
         scope = ""
         blackhole = ""
+
+        ### GENERIC WEB RULES
         if rule.logsource.category == "webserver":
             prefilter = "evt.Meta.service == 'http'"
             blackhole = "blackhole: 2m"
-            meta = self.generate_labels(rule, 0, 0, "http:exploit", "true")
+            meta = self.generate_labels(rule, 0, "http:exploit", "true")
             #here scope is implicit : ip
-
+        ### WINDOWS REGISTRY ADD
+        if rule.logsource.category == "registry_add" and rule.logsource.product == "windows":
+            meta = self.generate_labels(rule, 0, "windows:audit", "false")
+            prefilter = "(evt.Meta.service == 'sysmon' && evt.Parsed.EventID == '12')"
+            blackhole = "blackhole: 2m"
+            scope = """scope:
+  type: ParentProcessId
+  expression: evt.Parsed.ParentProcessId
+"""
+        ### WINDOWS PROCESS CREATION
         if rule.logsource.category == "process_creation" and rule.logsource.product == "windows":
-            meta = self.generate_labels(rule, 0, 0, "windows:audit", "false")
+            meta = self.generate_labels(rule, 0, "windows:audit", "false")
             prefilter = "(evt.Meta.service == 'sysmon' && evt.Parsed.EventID == '1')"
             blackhole = "blackhole: 2m"
             scope = """scope:
   type: ParentProcessId
   expression: evt.Parsed.ParentProcessId
 """
-        formatted_desc = rule.description.replace("\n", "\n  ")
+        if rule.description:
+            formatted_desc = rule.description.replace("\n", " ")
+        else:
+            warnings.warn("No description provided")
 
         #we generate the rule name based on the rule path
-        if rule.source.path == "":
-            raise ValueError("Rule path is empty")
+        if rule.title != "":
+            name = f"sigmahq/{rule.title}"
         else:
-            name = "sigma/"+os.path.basename(rule.source.path).split(".")[0]
+            warnings.warn("No title provided")
 
         ret = f"""type: trigger
 name: {name}
@@ -228,37 +256,12 @@ filter: |
 {blackhole}
 {meta}
 {scope}"""
-
+        
         return ret
 
-    def finalize_output_default_yaml(self, queries: List[str]) -> Any:
-        # TODO: implement the output finalization for all generated queries for the format format1 here. Usually,
-        # the single generated queries are embedded into a structure, e.g. some JSON or XML that can be imported into
-        # the SIEM.
-        # TODO: proper type annotation. Sigma CLI supports:
-        # - str: output as is.
-        # - bytes: output in file only (e.g. if a zip package is output).
-        # - dict: output serialized as JSON.
-        # - list of str: output each item as is separated by two newlines.
-        # - list of dict: serialize each item as JSON and output all separated by newlines.
-        return "\n---".join(queries)
-    
-    def finalize_query_format2(self, rule: SigmaRule, query: str, index: int, state: ConversionState) -> Any:
-        # TODO: implement the per-query output for the output format format2 here. Usually, the generated query is
-        # embedded into a template, e.g. a JSON format with additional information from the Sigma rule.
-        # TODO: proper type annotation.
-        return query
-
-    def finalize_output_format2(self, queries: List[str]) -> Any:
-        # TODO: implement the output finalization for all generated queries for the format format2 here. Usually,
-        # the single generated queries are embedded into a structure, e.g. some JSON or XML that can be imported into
-        # the SIEM.
-        # TODO: proper type annotation. Sigma CLI supports:
-        # - str: output as is.
-        # - bytes: output in file only (e.g. if a zip package is output).
-        # - dict: output serialized as JSON.
-        # - list of str: output each item as is separated by two newlines.
-        # - list of dict: serialize each item as JSON and output all separated by newlines.
+    def finalize_output_default(self, queries: List[str]) -> Any:
         return "\n".join(queries)
-    
-    
+
+
+    def finalize_output_queryonly(self, queries: List[str]) -> Any:
+        return "\n".join(queries)

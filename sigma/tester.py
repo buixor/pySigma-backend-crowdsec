@@ -12,5 +12,9 @@ process_start_rule_collection = SigmaCollection.load_ruleset([sys.argv[1]])
 
 
 
-#pprint.pprint(process_start_rule_collection)
-print(backendx().convert(rule_collection=process_start_rule_collection, output_format="default_yaml"))
+#pprint.(process_start_rule_collection)
+
+
+for  rule in process_start_rule_collection.rules:
+    for out in backendx().convert_rule(rule, "queryonly"):
+        print (" -> ",out)
