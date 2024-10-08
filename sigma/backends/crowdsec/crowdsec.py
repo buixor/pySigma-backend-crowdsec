@@ -1,3 +1,5 @@
+# pylint: disable=line-too-long
+
 from typing import Pattern, Union, ClassVar, Tuple, List, Dict, Any
 import warnings
 import re
@@ -23,8 +25,7 @@ class CrowdsecBackend(TextQueryBackend):
         "default": "default crowdsec scenario format",
         "queryonly": "ouput only the 'filter' (mostly for testing purposes)",
     }
-    requires_pipeline : bool = True            # TODO: does the backend requires that a processing pipeline is provided? This information can be used by user interface programs like Sigma CLI to warn users about inappropriate usage of the backend.
-
+    requires_pipeline : bool = True
     precedence : ClassVar[Tuple[ConditionItem, ConditionItem, ConditionItem]] = (ConditionNOT, ConditionAND, ConditionOR)
     group_expression : ClassVar[str] = "({expr})"   # Expression for precedence override grouping as format string with {expr} placeholder
     #parenthesize : bool = False     # Reflect parse tree by putting parenthesis around all expressions - use this for target systems without strict precedence rules.
@@ -72,7 +73,7 @@ class CrowdsecBackend(TextQueryBackend):
     # token stored in the class variable re_flags.
     re_expression : ClassVar[str] = "{field} matches '{regex}'"
     re_escape_char : ClassVar[str] = "\\"               # Character used for escaping in regular expressions
-    re_escape : ClassVar[Tuple[str]] = ("\\")               # List of strings that are escaped
+    re_escape : ClassVar[Tuple[str]] = "\\"               # List of strings that are escaped
     re_escape_escape_char : bool = True                 # If True, the escape character is also escaped
     re_flag_prefix : bool = True                        # If True, the flags are prepended as (?x) group at the beginning of the regular expression, e.g. (?i). If this is not supported by the target, it should be set to False.
     # Mapping from SigmaRegularExpressionFlag values to static string templates that are used in
@@ -128,9 +129,6 @@ class CrowdsecBackend(TextQueryBackend):
     deferred_start : ClassVar[str] = "\n| "               # String used as separator between main query and deferred parts
     deferred_separator : ClassVar[str] = "\n| "           # String used to join multiple deferred query parts
     deferred_only_query : ClassVar[str] = ""            # String used as query if final query only contains deferred expression
-
-    # TODO: implement custom methods for query elements not covered by the default backend base.
-    # Documentation: https://sigmahq-pysigma.readthedocs.io/en/latest/Backends.html
 
     def convert_value_str(self, s : SigmaString, state : ConversionState) -> str:
         """Convert a SigmaString into a plain string which can be used in query."""
@@ -195,7 +193,12 @@ labels:
         return meta
 
 
-    def finalize_query_queryonly(self, rule: SigmaRule, query: str, index: int, state: ConversionState) -> Any:
+    def finalize_query_queryonly(self, 
+                                 rule: SigmaRule, # pylint: disable=unused-argument
+                                 query: str,
+                                 index: int, # pylint: disable=unused-argument
+                                 state: ConversionState # pylint: disable=unused-argument
+                                 ) -> Any:
         """Return only the query, used for testing purposes."""
         #  Is there a better way to do this than defining a custom output format?
         return query
@@ -253,19 +256,19 @@ filter: |
 {blackhole}
 {meta}
 {scope}"""
-        
+       
         return ret
 
     def finalize_output_default(self, queries: List[str]) -> Any:
-
+        """Return the final Crowdsec Scenario(s)"""
         output = ""
-        for idx in range(len(queries)):
-            output += queries[idx]
+        for idx, query in enumerate(queries):
+            output += query
             if idx != len(queries) - 1:
                 output += "---\n"
         return output
-        #return "\n".join(queries)
 
 
     def finalize_output_queryonly(self, queries: List[str]) -> Any:
+        """Return only the queries, used for testing purposes."""
         return "\n".join(queries)

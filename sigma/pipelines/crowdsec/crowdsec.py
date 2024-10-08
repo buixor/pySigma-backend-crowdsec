@@ -1,20 +1,18 @@
-#from sigma.pipelines.common import  logsource_webserver, webserver_logsource_mapping
-from sigma.processing.transformations import AddConditionTransformation, FieldMappingTransformation, DetectionItemFailureTransformation, RuleFailureTransformation, SetStateTransformation
-from sigma.processing.conditions import LogsourceCondition, IncludeFieldCondition, ExcludeFieldCondition, RuleProcessingItemAppliedCondition
+# pylint: disable=line-too-long
+
+from sigma.processing.transformations import FieldMappingTransformation
+from sigma.processing.conditions import LogsourceCondition
 from sigma.processing.pipeline import ProcessingItem, ProcessingPipeline
 from sigma.pipelines.base import Pipeline
 
-# TODO: the following code is just an example extend/adapt as required.
-# See https://sigmahq-pysigma.readthedocs.io/en/latest/Processing_Pipelines.html for further documentation.
-
 @Pipeline
 def crowdsec_pipeline() -> ProcessingPipeline:        # Processing pipelines should be defined as functions that return a ProcessingPipeline object.
+    """Crowdsec processing pipeline for Sigma rules."""
     return ProcessingPipeline(
         name="crowdsec pipeline",
         allowed_backends={"crowdsec"},                                               # Set of identifiers of backends (from the backends mapping) that are allowed to use this processing pipeline. This can be used by frontends like Sigma CLI to warn the user about inappropriate usage.
         priority=20,            # The priority defines the order pipelines are applied. See documentation for common values.
         items=[
-        
             ProcessingItem(     # This is an example for processing items generated from the mapping above.
                 identifier="crowdsec_webserver_fieldmapping",
                 rule_conditions=[LogsourceCondition(category="webserver",)],
@@ -46,8 +44,7 @@ def crowdsec_pipeline() -> ProcessingPipeline:        # Processing pipelines sho
                 identifier="crowdsec_windows_process_creation_fieldmapping",
                 rule_conditions=[LogsourceCondition(category="process_creation",product="windows",)],
                 transformation=FieldMappingTransformation({
-                    "Computer" : "evt.Parsed.Computer",
-                    
+                    "Computer" : "evt.Parsed.Computer",                   
                 })
             ),
             ProcessingItem(     # This is an example for processing items generated from the mapping above.
