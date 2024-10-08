@@ -1,3 +1,4 @@
+"""Crowdsec backend for Sigma rules."""
 # pylint: disable=line-too-long
 
 from sigma.processing.transformations import FieldMappingTransformation

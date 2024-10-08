@@ -1,3 +1,4 @@
+"""Crowdsec backend for Sigma rules."""
 # pylint: disable=line-too-long
 
 from typing import Pattern, Union, ClassVar, Tuple, List, Dict, Any
@@ -148,7 +149,7 @@ class CrowdsecBackend(TextQueryBackend):
         """Conversion of NOT conditions."""
         arg = cond.args[0]
         if arg.__class__ in self.precedence:
-            return self.not_token + self.token_separator + self.convert_condition_group(arg, state) 
+            return self.not_token + self.token_separator + self.convert_condition_group(arg, state)
         expr = self.convert_condition(arg, state)
         if isinstance(expr, DeferredQueryExpression):      # negate deferred expression and pass it to parent
             return expr.negate()
@@ -252,7 +253,6 @@ filter: |
 {blackhole}
 {meta}
 {scope}"""
-       
         return ret
 
     def finalize_output_default(self, queries: List[str]) -> Any:

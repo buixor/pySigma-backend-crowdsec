@@ -1,3 +1,4 @@
+"""Crowdsec pipeline for Sigma rules."""
 from .crowdsec import crowdsec_pipeline
 
 pipelines = {
