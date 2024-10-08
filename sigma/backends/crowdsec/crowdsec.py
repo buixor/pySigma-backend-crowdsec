@@ -1,21 +1,17 @@
+from typing import Pattern, Union, ClassVar, Tuple, List, Dict, Any
+import warnings
+import re
 from sigma.conversion.state import ConversionState
 from sigma.rule import SigmaRule, SigmaStatus
 from sigma.conversion.base import TextQueryBackend, SigmaString
 from sigma.conditions import ConditionItem, ConditionAND, ConditionOR, ConditionNOT
 from sigma.conversion.deferred import DeferredQueryExpression
-from sigma.types import SigmaCompareExpression, SigmaRegularExpression
-from typing import Pattern, Union, ClassVar, Optional, Tuple, List, Dict, Any
+from sigma.types import SigmaCompareExpression
 from sigma.processing.pipeline import ProcessingPipeline
 from sigma.pipelines.crowdsec import crowdsec_pipeline
-import sigma
-import warnings
-import os
-import re
-from typing import ClassVar, Dict, Tuple, Pattern, List, Any
-import pdb
 
 
-class crowdsecBackend(TextQueryBackend):
+class CrowdsecBackend(TextQueryBackend):
     """crowdsec backend."""
     backend_processing_pipeline : ClassVar[ProcessingPipeline] = crowdsec_pipeline()
     # https://sigmahq-pysigma.readthedocs.io/en/latest/Backends.html

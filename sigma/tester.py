@@ -2,7 +2,7 @@ import pytest
 from sigma.collection import SigmaCollection
 from sigma.exceptions import SigmaTransformationError
 import  sigma.backends.crowdsec as crowdsec
-from sigma.backends.crowdsec import crowdsecBackend as backendx
+from sigma.backends.crowdsec import CrowdsecBackend as backendx
 #from sigma.backends.splunk import SplunkBackend as backendx
 import sys
 import pprint

@@ -1,13 +1,13 @@
 import pytest
 from sigma.collection import SigmaCollection
-from sigma.backends.crowdsec import crowdsecBackend
+from sigma.backends.crowdsec import CrowdsecBackend
 
 @pytest.fixture
 def crowdsec_backend():
-    return crowdsecBackend()
+    return CrowdsecBackend()
 
 # # TODO: implement tests for some basic queries and their expected results.
-def test_crowdsec_and_expression(crowdsec_backend : crowdsecBackend):
+def test_crowdsec_and_expression(crowdsec_backend : CrowdsecBackend):
     assert crowdsec_backend.convert(
         SigmaCollection.from_yaml("""
             title: Test
@@ -23,7 +23,7 @@ def test_crowdsec_and_expression(crowdsec_backend : crowdsecBackend):
         """),
     output_format="queryonly") == "fieldA == 'valueA' && fieldB == 'valueB'"
 
-def test_crowdsec_or_expression(crowdsec_backend : crowdsecBackend):
+def test_crowdsec_or_expression(crowdsec_backend : CrowdsecBackend):
     assert crowdsec_backend.convert(
         SigmaCollection.from_yaml("""
             title: Test
@@ -40,7 +40,7 @@ def test_crowdsec_or_expression(crowdsec_backend : crowdsecBackend):
         """),
     output_format="queryonly") == "fieldA == 'valueA' || fieldB == 'valueB'"
 
-def test_crowdsec_and_or_expression(crowdsec_backend : crowdsecBackend):
+def test_crowdsec_and_or_expression(crowdsec_backend : CrowdsecBackend):
     assert crowdsec_backend.convert(
         SigmaCollection.from_yaml("""
             title: Test
@@ -60,7 +60,7 @@ def test_crowdsec_and_or_expression(crowdsec_backend : crowdsecBackend):
         """),
     output_format="queryonly") == "(fieldA in ['valueA1', 'valueA2']) && (fieldB in ['valueB1', 'valueB2'])"
 
-def test_crowdsec_or_and_expression(crowdsec_backend : crowdsecBackend):
+def test_crowdsec_or_and_expression(crowdsec_backend : CrowdsecBackend):
     assert crowdsec_backend.convert(
         SigmaCollection.from_yaml("""
             title: Test
@@ -79,7 +79,7 @@ def test_crowdsec_or_and_expression(crowdsec_backend : crowdsecBackend):
         """),
     output_format="queryonly") == "fieldA == 'valueA1' && fieldB == 'valueB1' || fieldA == 'valueA2' && fieldB == 'valueB2'"
 
-def test_crowdsec_in_expression(crowdsec_backend : crowdsecBackend):
+def test_crowdsec_in_expression(crowdsec_backend : CrowdsecBackend):
     assert crowdsec_backend.convert(
         SigmaCollection.from_yaml("""
             title: Test
@@ -97,7 +97,7 @@ def test_crowdsec_in_expression(crowdsec_backend : crowdsecBackend):
         """),
     output_format="queryonly") == "fieldA == 'valueA' || fieldA == 'valueB' || fieldA startsWith 'valueC'"
 
-def test_crowdsec_regex_query(crowdsec_backend : crowdsecBackend):
+def test_crowdsec_regex_query(crowdsec_backend : CrowdsecBackend):
     assert crowdsec_backend.convert(
         SigmaCollection.from_yaml("""
             title: Test
@@ -113,7 +113,7 @@ def test_crowdsec_regex_query(crowdsec_backend : crowdsecBackend):
         """),
     output_format="queryonly") == "fieldA matches 'foo.*bar' && fieldB == 'foo'"
 
-def test_crowdsec_cidr_query(crowdsec_backend : crowdsecBackend):
+def test_crowdsec_cidr_query(crowdsec_backend : CrowdsecBackend):
     assert crowdsec_backend.convert(
         SigmaCollection.from_yaml("""
             title: Test
@@ -128,7 +128,7 @@ def test_crowdsec_cidr_query(crowdsec_backend : crowdsecBackend):
         """),
     output_format="queryonly") == "IpInRange(field, '192.168.0.0/16')"
 
-def test_crowdsec_cidr_in_list_query(crowdsec_backend : crowdsecBackend):
+def test_crowdsec_cidr_in_list_query(crowdsec_backend : CrowdsecBackend):
     assert crowdsec_backend.convert(
         SigmaCollection.from_yaml("""
             title: Test
@@ -146,7 +146,7 @@ def test_crowdsec_cidr_in_list_query(crowdsec_backend : crowdsecBackend):
     output_format="queryonly") == "IpInRange(field, '192.168.0.0/16') || IpInRange(field, '10.0.0.0/8')"
 
 # (TBD) Skip on purpose, doesn't seem relevant for us. Our data is always in Maps, so evt.Meta['foo bar'] works
-# def test_crowdsec_field_name_with_whitespace(crowdsec_backend : crowdsecBackend):
+# def test_crowdsec_field_name_with_whitespace(crowdsec_backend : CrowdsecBackend):
 #     assert crowdsec_backend.convert(
 #         SigmaCollection.from_yaml("""
 #             title: Test
@@ -163,7 +163,7 @@ def test_crowdsec_cidr_in_list_query(crowdsec_backend : crowdsecBackend):
 
 
 # Stolen from splunk tests
-def test_crowdsec_regex_query_implicit_or(crowdsec_backend : crowdsecBackend):
+def test_crowdsec_regex_query_implicit_or(crowdsec_backend : CrowdsecBackend):
     assert (
         crowdsec_backend.convert(
             SigmaCollection.from_yaml(
@@ -189,7 +189,7 @@ def test_crowdsec_regex_query_implicit_or(crowdsec_backend : crowdsecBackend):
     )
 
 
-def test_crowdsec_regex_query_explicit_or(crowdsec_backend : crowdsecBackend):
+def test_crowdsec_regex_query_explicit_or(crowdsec_backend : CrowdsecBackend):
     assert (
         crowdsec_backend.convert(
             SigmaCollection.from_yaml(
@@ -220,12 +220,12 @@ def test_crowdsec_regex_query_explicit_or(crowdsec_backend : crowdsecBackend):
 
 
 
-# def test_crowdsec_format1_output(crowdsec_backend : crowdsecBackend):
+# def test_crowdsec_format1_output(crowdsec_backend : CrowdsecBackend):
 #     """Test for output format format1."""
 #     # TODO: implement a test for the output format
 #     pass
 
-# def test_crowdsec_format2_output(crowdsec_backend : crowdsecBackend):
+# def test_crowdsec_format2_output(crowdsec_backend : CrowdsecBackend):
 #     """Test for output format format2."""
 #     # TODO: implement a test for the output format
 #     pass

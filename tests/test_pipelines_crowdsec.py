@@ -1,12 +1,12 @@
 import pytest
 from sigma.collection import SigmaCollection
 from sigma.exceptions import SigmaTransformationError
-from sigma.backends.crowdsec import crowdsecBackend
+from sigma.backends.crowdsec import CrowdsecBackend
 #import sigma.backends.
 
 
 def test_crowdseec_webserver_field_mapping():
-    assert crowdsecBackend().convert(
+    assert CrowdsecBackend().convert(
         SigmaCollection.from_yaml("""
             title: Test
             status: test
@@ -25,7 +25,7 @@ def test_crowdseec_webserver_field_mapping():
         """), output_format="queryonly") == "evt.Meta.source_ip == '127.0.0.1' && evt.Parsed.target_fqdn == 'foobar.com' && evt.Meta.http_verb == 'GET' && evt.Parsed.http_args == 'TEST_PATTERN'"
 
 # def test_crowdsec_aggreg():
-#     assert crowdsecBackend().convert(
+#     assert CrowdsecBackend().convert(
 #         SigmaCollection.from_yaml("""
 #             title: Test
 #             status: test
@@ -47,7 +47,7 @@ def test_crowdseec_webserver_field_mapping():
 
 
 # def test_crowdsec_aggregbis():
-#     assert crowdsecBackend().convert(
+#     assert CrowdsecBackend().convert(
 #         SigmaCollection.from_yaml("""
 #             title: Test
 #             status: test
@@ -67,7 +67,7 @@ def test_crowdseec_webserver_field_mapping():
 # #count(UserName) by SourceWorkstation > 3
 
 # def test_crowdsec_wtflol():
-#     assert crowdsecBackend().convert(
+#     assert CrowdsecBackend().convert(
 #         SigmaCollection.from_yaml("""
 #             title: Test
 #             status: test
