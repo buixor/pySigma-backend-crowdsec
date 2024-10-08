@@ -142,26 +142,17 @@ class CrowdsecBackend(TextQueryBackend):
 
         if self.decide_string_quoting(s):
             return self.quote_string(converted)
-        else:
-            return converted
+        return converted
 
     def convert_condition_not(self, cond : ConditionNOT, state : ConversionState) -> Union[str, DeferredQueryExpression]:
         """Conversion of NOT conditions."""
         arg = cond.args[0]
-
-        try:
-            if arg.__class__ in self.precedence:        # group if AND or OR condition is negated
-                #print("#1 : " + self.convert_condition(arg, state))
-                return self.not_token + self.token_separator + self.convert_condition_group(arg, state) 
-            else:
-                #print("#2 : " + self.convert_condition(arg, state))
-                expr = self.convert_condition(arg, state)
-                if isinstance(expr, DeferredQueryExpression):      # negate deferred expression and pass it to parent
-                    return expr.negate()
-                else:                                             # convert negated expression to string
-                    return self.not_token + self.token_separator + "("  + expr + ")"
-        except TypeError:       # pragma: no cover
-            raise NotImplementedError("Operator 'not' not supported by the backend")
+        if arg.__class__ in self.precedence:
+            return self.not_token + self.token_separator + self.convert_condition_group(arg, state) 
+        expr = self.convert_condition(arg, state)
+        if isinstance(expr, DeferredQueryExpression):      # negate deferred expression and pass it to parent
+            return expr.negate()
+        return self.not_token + self.token_separator + "("  + expr + ")"
 
     def generate_labels(self, rule: SigmaRule, spoofable: int, behavior: str, remediation: str) -> str:
         """Use the rule tags and status to generate the meta section of the crowdsec scenario"""
@@ -193,7 +184,7 @@ labels:
         return meta
 
 
-    def finalize_query_queryonly(self, 
+    def finalize_query_queryonly(self,
                                  rule: SigmaRule, # pylint: disable=unused-argument
                                  query: str,
                                  index: int, # pylint: disable=unused-argument
@@ -202,7 +193,12 @@ labels:
         """Return only the query, used for testing purposes."""
         #  Is there a better way to do this than defining a custom output format?
         return query
-    def finalize_query_default(self, rule: SigmaRule, query: str, index: int, state: ConversionState) -> Any:
+    def finalize_query_default(self,
+                               rule: SigmaRule,
+                               query: str,
+                               index: int,  # pylint: disable=unused-argument
+                               state: ConversionState # pylint: disable=unused-argument
+                               ) -> Any:
         """Generate the final Crowdsec Scenario from Query and Sigma rule info"""
         name = "sigmahq/NO_SOURCE_PATH"
         formatted_desc = "No description provided"

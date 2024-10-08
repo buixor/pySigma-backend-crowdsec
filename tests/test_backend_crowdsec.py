@@ -1,3 +1,5 @@
+# pylint: skip-file
+
 import pytest
 from sigma.collection import SigmaCollection
 from sigma.backends.crowdsec import CrowdsecBackend
