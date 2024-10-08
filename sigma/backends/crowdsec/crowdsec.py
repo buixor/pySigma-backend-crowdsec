@@ -8,11 +8,11 @@ from typing import Pattern, Union, ClassVar, Optional, Tuple, List, Dict, Any
 from sigma.processing.pipeline import ProcessingPipeline
 from sigma.pipelines.crowdsec import crowdsec_pipeline
 import sigma
+import warnings
 import os
 import re
 from typing import ClassVar, Dict, Tuple, Pattern, List, Any
 import pdb
-
 
 
 class crowdsecBackend(TextQueryBackend):
@@ -25,6 +25,7 @@ class crowdsecBackend(TextQueryBackend):
     name : ClassVar[str] = "crowdsec_backend"
     formats : Dict[str, str] = {
         "default": "default crowdsec scenario format",
+        "queryonly": "ouput only the 'filter' (mostly for testing purposes)",
     }
     requires_pipeline : bool = True            # TODO: does the backend requires that a processing pipeline is provided? This information can be used by user interface programs like Sigma CLI to warn users about inappropriate usage of the backend.
 
@@ -56,8 +57,6 @@ class crowdsecBackend(TextQueryBackend):
     escape_char     : ClassVar[str] = "\\"    # Escaping character for special characrers inside string ##TBD : sort this one out
     wildcard_multi  : ClassVar[str] = "*"     # Character used as multi-character wildcard
     wildcard_single : ClassVar[str] = "?"     # Character used as single-character wildcard
-    #wildcard_multi  : ClassVar[str] = ".*"     # Character used as multi-character wildcard
-    #wildcard_single : ClassVar[str] = "."     # Character used as single-character wildcard
     add_escaped     : ClassVar[str] = "\\"    # Characters quoted in addition to wildcards and string quote
     #filter_chars    : ClassVar[str] = ""      # Characters filtered
     bool_values     : ClassVar[Dict[bool, str]] = {   # Values to which boolean values are mapped.
@@ -114,11 +113,11 @@ class crowdsecBackend(TextQueryBackend):
 
     # Field value in list, e.g. "field in (value list)" or "field containsall (value list)"
     # (TBD) For some reason, enabling this breaks the contains queries. See in_expressions_allow_wildcards
-    convert_or_as_in : ClassVar[bool] = False                     # Convert OR as in-expression
+    convert_or_as_in : ClassVar[bool] = True                     # Convert OR as in-expression
     # (TBD) This one would require use to use closures ie. all({field}, { # == }) to work
     convert_and_as_in : ClassVar[bool] = False                    # Convert AND as in-expression
 
-    in_expressions_allow_wildcards : ClassVar[bool] = True       # Values in list can contain wildcards. If set to False (default) only plain values are converted into in-expressions.
+    in_expressions_allow_wildcards : ClassVar[bool] = False       # Values in list can contain wildcards. If set to False (default) only plain values are converted into in-expressions.
     field_in_list_expression : ClassVar[str] = "{field} {op} [{list}]"  # Expression for field in list of values as format string with placeholders {field}, {op} and {list}
     or_in_operator : ClassVar[str] = "in"               # Operator used to convert OR into in-expressions. Must be set if convert_or_as_in is set
     #this one can be tricky
@@ -171,6 +170,7 @@ class crowdsecBackend(TextQueryBackend):
             raise NotImplementedError("Operator 'not' not supported by the backend")
 
     def generate_labels(self, rule: SigmaRule, spoofable: int, behavior: str, remediation: str) -> str:
+        """Use the rule tags and status to generate the meta section of the crowdsec scenario"""
         classification = ""
         confidence = 0
         if rule.status == SigmaStatus.EXPERIMENTAL:
@@ -198,13 +198,20 @@ labels:
 """
         return meta
 
+
+    def finalize_query_queryonly(self, rule: SigmaRule, query: str, index: int, state: ConversionState) -> Any:
+        """Return only the query, used for testing purposes."""
+        #  Is there a better way to do this than defining a custom output format?
+        return query
     def finalize_query_default(self, rule: SigmaRule, query: str, index: int, state: ConversionState) -> Any:
-        # TODO: implement the per-query output for the output format format1 here. Usually, the generated query is
-        # embedded into a template, e.g. a JSON format with additional information from the Sigma rule.
-        # TODO: proper type annotation.
+        """Generate the final Crowdsec Scenario from Query and Sigma rule info"""
+        name = "sigmahq/NO_SOURCE_PATH"
+        formatted_desc = "No description provided"
+        meta = ""
         prefilter = ""
         scope = ""
         blackhole = ""
+
         ### GENERIC WEB RULES
         if rule.logsource.category == "webserver":
             prefilter = "evt.Meta.service == 'http'"
@@ -229,13 +236,16 @@ labels:
   type: ParentProcessId
   expression: evt.Parsed.ParentProcessId
 """
-        formatted_desc = rule.description.replace("\n", "\n  ")
+        if rule.description:
+            formatted_desc = rule.description.replace("\n", " ")
+        else:
+            warnings.warn("No description provided")
 
         #we generate the rule name based on the rule path
-        if rule.source.path == "":
-            raise ValueError("Rule path is empty")
+        if rule.title != "":
+            name = f"sigmahq/{rule.title}"
         else:
-            name = "sigmahq/"+os.path.basename(rule.source.path).split(".")[0]
+            warnings.warn("No title provided")
 
         ret = f"""type: trigger
 name: {name}
@@ -252,3 +262,6 @@ filter: |
     def finalize_output_default(self, queries: List[str]) -> Any:
         return "\n".join(queries)
 
+
+    def finalize_output_queryonly(self, queries: List[str]) -> Any:
+        return "\n".join(queries)

@@ -24,9 +24,6 @@ def crowdsec_pipeline() -> ProcessingPipeline:        # Processing pipelines sho
                     "c-ip": "evt.Meta.source_ip",
                     "cs-username": "evt.Parsed.remote_user",
                     "s-sitename": "evt.Parsed.target_fqdn",
-#                    "s-computername": "N/A", might only be present from web logs over syslog?
-#                    "s-ip": "N/A", might only be present from web logs over syslog?
-#                    "s-port": "N/A", might only be present from web logs over syslog?
                     "cs-method": "evt.Meta.http_verb",
                     "cs-uri-stem": "evt.Meta.http_path",
                     "cs-uri-query": "evt.Parsed.http_args",
@@ -38,19 +35,13 @@ def crowdsec_pipeline() -> ProcessingPipeline:        # Processing pipelines sho
                     "cs-version": "evt.Parsed.http_version",
                     "cs-host": "evt.Parsed.target_fqdn",
                     "cs-user-agent": "evt.Meta.http_user_agent",
-#                   "cs-cookie": "N/A", no part of default logging formats
-                   "cs-referer": "evt.Parsed.http_referer",
+                    "cs-referer": "evt.Parsed.http_referer",
+#                   "cs-cookie": "N/A", (TBD) no part of default logging formats
+#                   "s-computername": "N/A", (TBD) might only be present from web logs over syslog?
+#                   "s-ip": "N/A", (TBD) might only be present from web logs over syslog?
+#                   "s-port": "N/A", (TBD) might only be present from web logs over syslog?
                 })
             ),
-
-    #             "Computer": "Registry.dest",
-    # "Details": "Registry.registry_value_data",
-    # "EventType": "Registry.action", # EventType: DeleteKey is parsed to action: deleted
-    # "Image": "Registry.process_path",
-    # "ProcessGuid": "Registry.process_guid",
-    # "ProcessId": "Registry.process_id",
-    # "TargetObject": "Registry.registry_key_name",
-
             ProcessingItem(     # This is an example for processing items generated from the mapping above.
                 identifier="crowdsec_windows_process_creation_fieldmapping",
                 rule_conditions=[LogsourceCondition(category="process_creation",product="windows",)],
