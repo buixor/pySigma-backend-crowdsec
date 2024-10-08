@@ -12,6 +12,14 @@ poetry install
 pip3 install sigma-cli
 ```
 
+# Converting Crowdsec Rules
+
+_note: `sigma` outputs everything in one file._
+
+```bash
+for i in `find /path/to/sigma_core/rules/windows/process_creation/ -type f` ; do echo ${i} ; sigma convert -p crowdsec -t crowdsec  ${i} > /path/to/$(basename ${i}) ; done
+```
+
 # Example output
 
 ```yaml
@@ -42,6 +50,6 @@ scope:
 
 # Support Categories
 
-- [ ] WebServer
-- [ ] Windows / `registry_add`
-- [ ] Windows / `process_creation`
+- [x] WebServer
+- [x] Windows / `registry_add`
+- [x] Windows / `process_creation`

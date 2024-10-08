@@ -243,7 +243,8 @@ labels:
 
         #we generate the rule name based on the rule path
         if rule.title != "":
-            name = f"sigmahq/{rule.title}"
+            normalized_title = re.sub(r"[^a-zA-Z0-9]", "_", rule.title).lower()
+            name = f"sigmahq/{normalized_title}"
         else:
             warnings.warn("No title provided")
 
@@ -260,7 +261,14 @@ filter: |
         return ret
 
     def finalize_output_default(self, queries: List[str]) -> Any:
-        return "\n".join(queries)
+
+        output = ""
+        for idx in range(len(queries)):
+            output += queries[idx]
+            if idx != len(queries) - 1:
+                output += "---\n"
+        return output
+        #return "\n".join(queries)
 
 
     def finalize_output_queryonly(self, queries: List[str]) -> Any:
