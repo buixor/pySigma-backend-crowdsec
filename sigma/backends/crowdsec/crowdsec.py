@@ -131,7 +131,10 @@ class CrowdsecBackend(TextQueryBackend):
     deferred_separator : ClassVar[str] = "\n| "           # String used to join multiple deferred query parts
     deferred_only_query : ClassVar[str] = ""            # String used as query if final query only contains deferred expression
 
-    def convert_value_str(self, s : SigmaString, state : ConversionState) -> str:
+    def convert_value_str(self, 
+                          s : SigmaString, 
+                          state : ConversionState # pylint: disable=unused-argument
+                          ) -> str:
         """Convert a SigmaString into a plain string which can be used in query."""
         converted = s.convert(
             self.escape_char,
