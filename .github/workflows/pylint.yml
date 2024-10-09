@@ -20,5 +20,5 @@ jobs:
         pip install pylint poetry
     - name: Analysing the code with pylint
       run: |
-        poetry install
+        poetry install --no-interaction
         poetry run pylint $(git ls-files '*.py')
