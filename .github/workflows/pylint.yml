@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Poetry
-        run: pipx install poetry pylint
+        run: pipx install poetry
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
