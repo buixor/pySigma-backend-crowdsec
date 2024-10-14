@@ -1,3 +1,7 @@
+![pylint](https://github.com/buixor/pySigma-backend-crowdsec/actions/workflows/pylint.yml/badge.svg)
+
+![pytest](https://github.com/buixor/pySigma-backend-crowdsec/actions/workflows/pytest.yml/badge.svg)
+
 # pySigma crowdsec Backend
 
 This is a **WIP** (but functional) crowdsec backend+pipeline for [pySigma](https://github.com/SigmaHQ/pySigma/).
