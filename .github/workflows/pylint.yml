@@ -1,10 +1,6 @@
 name: Pylint
-on:
-  push:
-    branches: [ ci_pylint ]
-  pull_request:
-    branches: [ ci_pylint ]
-  workflow_dispatch:
+
+on: [push, pull_request]
 
 jobs:
   test:
