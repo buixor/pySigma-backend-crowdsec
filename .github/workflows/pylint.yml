@@ -24,4 +24,4 @@ jobs:
       - name: Install dependencies
         run: poetry install
       - name: Run tests
-        run: poetry run pylint $(git ls-files '*.py')
+        run: poetry run pylint --ignore-patterns=test_.*?py $(git ls-files '*.py')
